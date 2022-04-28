@@ -457,19 +457,17 @@ class ContactView(APIView):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Требуется войти в систему'}, status=403)
 
-        if 'id' not in request.data:
-            return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
-
-        if request.data['id'].isdigit():
-            contact = Contact.objects.filter(id=request.data['id'], user_id=request.user.id).first()
-            print(contact)
-            if contact:
-                serializer = ContactSerializer(contact, data=request.data, partial=True)
-                if serializer.is_valid():
-                    serializer.save()
-                    return JsonResponse({'Status': True})
-                else:
-                    return JsonResponse({'Status': False, 'Errors': serializer.errors})
+        if 'id' in request.data:
+            if request.data['id'].isdigit():
+                contact = Contact.objects.filter(id=request.data['id'], user_id=request.user.id).first()
+                if contact:
+                    serializer = ContactSerializer(contact, data=request.data, partial=True)
+                    if serializer.is_valid():
+                        serializer.save()
+                        return JsonResponse({'Status': True})
+                    else:
+                        return JsonResponse({'Status': False, 'Errors': serializer.errors})
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
 
 class OrderView(APIView):
@@ -496,19 +494,17 @@ class OrderView(APIView):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Требуется войти в систему'}, status=403)
 
-        if not {'id', 'contact'}.issubset(request.data):
-            return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
-
-        if request.data['id'].isdigit():
-            try:
-                is_updated = Order.objects.filter(
-                    user_id=request.user.id, id=request.data['id']).update(
-                    contact_id=request.data['contact'],
-                    state='new')
-            except IntegrityError as error:
-                print(error)
-                return JsonResponse({'Status': False, 'Errors': 'Неправильно указаны аргументы'})
-            else:
-                if is_updated:
-                    new_order.send(sender=self.__class__, user_id=request.user.id)
-                    return JsonResponse({'Status': True})
+        if {'id', 'contact'}.issubset(request.data):
+            if request.data['id'].isdigit() and request.data['contact'].isdigit():
+                try:
+                    is_updated = Order.objects.filter(
+                        user_id=request.user.id, id=request.data['id']).update(
+                        contact_id=request.data['contact'],
+                        state='new')
+                except IntegrityError as error:
+                    return JsonResponse({'Status': False, 'Errors': 'Неправильно указаны аргументы'})
+                else:
+                    if is_updated:
+                        new_order.send(sender=self.__class__, user_id=request.user.id)
+                        return JsonResponse({'Status': True})
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
