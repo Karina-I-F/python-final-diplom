@@ -9,60 +9,45 @@ from django.db.models import Q, Sum, F
 from django.http import JsonResponse
 from requests import get
 from rest_framework.authtoken.models import Token
-from rest_framework.generics import ListAPIView
+from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.permissions import IsAdminUser, IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 from ujson import loads as load_json
 from yaml import load as load_yaml, Loader
 
 from backend.models import Shop, Category, ProductInfo, Product, Parameter, ProductParameter, Order, OrderItem, \
     Contact, ConfirmEmailToken
+from backend.permissions import DenyAny
 from backend.serializers import UserSerializer, CategorySerializer, ShopSerializer, ProductInfoSerializer, \
     OrderSerializer, OrderItemSerializer, ContactSerializer
 from backend.signals import new_user_registered, new_order
 
 
-class RegisterAccount(APIView):
-    """
-    Для регистрации покупателей
-    """
+class RegisterAccountViewSet(ModelViewSet):
+    """Для регистрации покупателей"""
 
-    # Регистрация методом POST
-    def post(self, request, *args, **kwargs):
-
-        # проверяем обязательные аргументы
-        if not {'first_name', 'last_name', 'email', 'password', 'company', 'position'}.issubset(request.data):
-            return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
-
-        # проверяем пароль на сложность
-        try:
-            validate_password(request.data['password'])
-        except Exception as password_error:
-            error_array = []
-            # noinspection PyTypeChecker
-            for error in password_error:
-                error_array.append(error)
-            return JsonResponse({'Status': False, 'Errors': {'password': error_array}})
+    def get_permissions(self):
+        if self.action in ['create']:
+            return [AllowAny()]
         else:
-            # проверяем данные для уникальности имени пользователя
-            request.data._mutable = True
-            request.data.update({})
-            user_serializer = UserSerializer(data=request.data)
-            if user_serializer.is_valid():
-                # сохраняем пользователя
-                user = user_serializer.save()
-                user.set_password(request.data['password'])
-                user.save()
-                new_user_registered.send(sender=self.__class__, user_id=user.id)
-                return JsonResponse({'Status': True})
-            else:
-                return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
+            return [DenyAny()]
+
+    def create(self, request, *args, **kwargs):
+        user_serializer = UserSerializer(data=request.data)
+        if user_serializer.is_valid():
+            user = user_serializer.save()
+            user.set_password(request.data['password'])
+            user.save()
+            new_user_registered.send(sender=self.__class__, user_id=user.id)
+            return JsonResponse({'Status': True})
+        else:
+            return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
 
 
 class ConfirmAccount(APIView):
-    """
-    Класс для подтверждения почтового адреса
-    """
+    """Класс для подтверждения почтового адреса"""
 
     # Регистрация методом POST
     def post(self, request, *args, **kwargs):
@@ -84,9 +69,7 @@ class ConfirmAccount(APIView):
 
 
 class AccountDetails(APIView):
-    """
-    Класс для работы данными пользователя
-    """
+    """Класс для работы с данными пользователя"""
 
     # получить данные
     def get(self, request, *args, **kwargs):
@@ -125,9 +108,7 @@ class AccountDetails(APIView):
 
 
 class LoginAccount(APIView):
-    """
-    Класс для авторизации пользователей
-    """
+    """Класс для авторизации пользователей"""
 
     # Авторизация методом POST
     def post(self, request, *args, **kwargs):
@@ -146,53 +127,46 @@ class LoginAccount(APIView):
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
 
-class CategoryView(ListAPIView):
-    """
-    Класс для просмотра категорий
-    """
+class CategoryViewSet(ModelViewSet):
+    """Класс для просмотра категорий"""
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAdminUser(), IsAuthenticated()]
+        return []
 
-class ShopView(ListAPIView):
-    """
-    Класс для просмотра списка магазинов
-    """
-    queryset = Shop.objects.filter(state=True)
+
+class ShopViewSet(ModelViewSet):
+    """Класс для просмотра магазинов"""
+
+    queryset = Shop.objects.all()
     serializer_class = ShopSerializer
 
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAdminUser(), IsAuthenticated()]
+        return []
 
-class ProductInfoView(APIView):
-    """
-    Класс для поиска товаров
-    """
 
-    def get(self, request, *args, **kwargs):
+class ProductInfoViewSet(ModelViewSet):
+    """Класс для поиска товаров"""
 
-        query = Q(shop__state=True)
-        shop_id = request.query_params.get('shop_id')
-        category_id = request.query_params.get('category_id')
+    queryset = ProductInfo.objects.all()
+    serializer_class = ProductInfoSerializer
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['name', 'price']
+    ordering_fields = ['shop_id', 'category_id']
 
-        if shop_id:
-            query = query & Q(shop_id=shop_id)
-
-        if category_id:
-            query = query & Q(product__category_id=category_id)
-
-        # фильтруем и отбрасываем дубликаты
-        queryset = ProductInfo.objects.filter(query).select_related(
-            'shop', 'product__category').prefetch_related(
-            'product_parameters__parameter').distinct()
-
-        serializer = ProductInfoSerializer(queryset, many=True)
-
-        return Response(serializer.data)
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAdminUser(), IsAuthenticated()]
+        return []
 
 
 class BasketView(APIView):
-    """
-    Класс для работы с корзиной пользователя
-    """
+    """Класс для работы с корзиной пользователя"""
 
     # получить корзину
     def get(self, request, *args, **kwargs):
@@ -290,9 +264,7 @@ class BasketView(APIView):
 
 
 class PartnerUpdate(APIView):
-    """
-    Класс для обновления прайса от поставщика
-    """
+    """Класс для обновления прайса от поставщика"""
 
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -341,9 +313,7 @@ class PartnerUpdate(APIView):
 
 
 class PartnerState(APIView):
-    """
-    Класс для работы со статусом поставщика
-    """
+    """Класс для работы со статусом поставщика"""
 
     # получить текущий статус
     def get(self, request, *args, **kwargs):
@@ -378,9 +348,7 @@ class PartnerState(APIView):
 
 
 class PartnerOrders(APIView):
-    """
-    Класс для получения заказов поставщиками
-    """
+    """Класс для получения заказов поставщиками"""
 
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -400,9 +368,7 @@ class PartnerOrders(APIView):
 
 
 class ContactView(APIView):
-    """
-    Класс для работы с контактами покупателей
-    """
+    """Класс для работы с контактами покупателей"""
 
     # получить мои контакты
     def get(self, request, *args, **kwargs):
@@ -471,9 +437,7 @@ class ContactView(APIView):
 
 
 class OrderView(APIView):
-    """
-    Класс для получения и размещения заказов пользователями
-    """
+    """Класс для получения и размещения заказов пользователями"""
 
     # получить мои заказы
     def get(self, request, *args, **kwargs):
