@@ -149,6 +149,8 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ),
 
+    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
+
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
@@ -161,6 +163,12 @@ REST_FRAMEWORK = {
         'reg': '100/day'
     },
 }
+
+# Celery
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND')
+CELERY_BROKER = os.getenv('CELERY_BROKER')
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
+CELERY_TIMEZONE = 'UTC'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
