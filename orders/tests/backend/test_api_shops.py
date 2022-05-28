@@ -2,14 +2,14 @@ from model_bakery import baker
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from backend.models import User, Category
+from backend.models import User, Shop
 
 
-class CategoriesTests(APITestCase):
+class ShopsTests(APITestCase):
 
     def setUp(self) -> None:
-        self.url = 'http://testserver/api/v1/categories/'
-        self.customer = baker.make(Category, _quantity=5, _bulk_create=True)
+        self.url = 'http://testserver/api/v1/shops/'
+        self.customer = baker.make(Shop, _quantity=9, _bulk_create=True)
 
         shop_user_test1 = User.objects.create_user(email='test@test.com', password='test1test', type='shop',
                                                    is_active=True)
@@ -17,33 +17,33 @@ class CategoriesTests(APITestCase):
         user_test2 = User.objects.create_user(email='test2@test.com', password='test2test', is_active=True)
         self.user_test2_token = Token.objects.create(user=user_test2)
 
-    def test_categories_list(self):
+    def test_shops_list(self):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data['results']), 5)
+        self.assertEqual(len(response.data['results']), 9)
 
-    def test_category_create_unauthorized(self):
+    def test_shop_create_unauthorized(self):
         data = {
-            'name': 'test_category'
+            'name': 'test_shop'
         }
         response = self.client.post(self.url, data)
 
         self.assertEqual(response.status_code, 401)
 
-    def test_category_create_authorized_shop(self):
+    def test_shop_create_authorized_shop(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.shop_user_test1_token.key)
         data = {
-            'name': 'test_category'
+            'name': 'test_shop1'
         }
         response = self.client.post(self.url, data)
 
         self.assertEqual(response.status_code, 201)
 
-    def test_category_create_authorized(self):
+    def test_shop_create_authorized(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.user_test2_token.key)
         data = {
-            'name': 'test_category2'
+            'name': 'test_shop2'
         }
         response = self.client.post(self.url, data)
 

@@ -2,6 +2,7 @@ Django==3.2.10
 pytz==2021.3
 psycopg2-binary==2.9.3
 djangorestframework==3.13.1
+python-decouple~=3.6
 
 PyYAML~=6.0
 pip~=22.0.4
@@ -11,8 +12,5 @@ requests~=2.27.1
 
 ujson~=5.1.0
 
-pytest~=7.1.2
-pytest_django~=4.5.2
 model_bakery~=1.5.0
 coverage~=6.4
-pytest-cov~=3.0.0

@@ -10,7 +10,7 @@ from django.http import JsonResponse
 from requests import get
 from rest_framework.authtoken.models import Token
 from rest_framework.filters import SearchFilter, OrderingFilter
-from rest_framework.permissions import IsAdminUser, IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
@@ -19,7 +19,7 @@ from yaml import load as load_yaml, Loader
 
 from backend.models import Shop, Category, ProductInfo, Product, Parameter, ProductParameter, Order, OrderItem, \
     Contact, ConfirmEmailToken
-from backend.permissions import DenyAny
+from backend.permissions import DenyAny, IsShop
 from backend.serializers import UserSerializer, CategorySerializer, ShopSerializer, ProductInfoSerializer, \
     OrderSerializer, OrderItemSerializer, ContactSerializer
 from backend.signals import new_user_registered, new_order
@@ -134,7 +134,7 @@ class CategoryViewSet(ModelViewSet):
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAdminUser(), IsAuthenticated()]
+            return [IsShop(), IsAuthenticated()]
         return []
 
 
@@ -146,7 +146,7 @@ class ShopViewSet(ModelViewSet):
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAdminUser(), IsAuthenticated()]
+            return [IsShop(), IsAuthenticated()]
         return []
 
 
@@ -161,7 +161,7 @@ class ProductInfoViewSet(ModelViewSet):
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAdminUser(), IsAuthenticated()]
+            return [IsShop(), IsAuthenticated()]
         return []
 
 
