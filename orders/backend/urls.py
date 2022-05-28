@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 
 from backend.views import PartnerUpdate, PartnerState, PartnerOrders, ConfirmAccount, AccountDetails, \
     ContactView, LoginAccount, CategoryViewSet, ShopViewSet, ProductInfoViewSet, BasketView, OrderView, \
-    RegisterAccountViewSet
+    RegisterAccountViewSet, TaskStatus
 
 router = DefaultRouter()
 router.register('user/register', RegisterAccountViewSet, basename='user-register')
@@ -28,5 +28,7 @@ urlpatterns = [
     path('basket', BasketView.as_view(), name='basket'),
     path('order', OrderView.as_view(), name='order'),
 
-    path('', include(router.urls))
+    path('', include(router.urls)),
+
+    path('task', TaskStatus.as_view(), name='task-status'),
 ]

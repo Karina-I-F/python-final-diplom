@@ -1,5 +1,6 @@
 from distutils.util import strtobool
 
+from celery.result import AsyncResult
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -7,7 +8,6 @@ from django.core.validators import URLValidator
 from django.db import IntegrityError
 from django.db.models import Q, Sum, F
 from django.http import JsonResponse
-from requests import get
 from rest_framework.authtoken.models import Token
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -15,7 +15,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from ujson import loads as load_json
-from yaml import load as load_yaml, Loader
 
 from backend.models import Shop, Category, ProductInfo, Product, Parameter, ProductParameter, Order, OrderItem, \
     Contact, ConfirmEmailToken
@@ -23,6 +22,8 @@ from backend.permissions import DenyAny, IsShop
 from backend.serializers import UserSerializer, CategorySerializer, ShopSerializer, ProductInfoSerializer, \
     OrderSerializer, OrderItemSerializer, ContactSerializer
 from backend.signals import new_user_registered, new_order
+from backend.tasks import do_import
+from orders.celery import app as celery_app
 
 
 class RegisterAccountViewSet(ModelViewSet):
@@ -40,8 +41,11 @@ class RegisterAccountViewSet(ModelViewSet):
             user = user_serializer.save()
             user.set_password(request.data['password'])
             user.save()
-            new_user_registered.send(sender=self.__class__, user_id=user.id)
-            return JsonResponse({'Status': True})
+            sig_resp = new_user_registered.send(sender=self.__class__, user_id=user.id)
+            response = {'Status': True}
+            if sig_resp:
+                response['task_id'] = sig_resp[0][1]
+            return JsonResponse(response)
         else:
             return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
 
@@ -281,33 +285,9 @@ class PartnerUpdate(APIView):
             except ValidationError as e:
                 return JsonResponse({'Status': False, 'Error': str(e)})
             else:
-                stream = get(url).content
-                data = load_yaml(stream, Loader=Loader)
-                shop, _ = Shop.objects.get_or_create(name=data['shop'], user_id=request.user.id)
-
-                for category in data['categories']:
-                    category_object, _ = Category.objects.get_or_create(id=category['id'], name=category['name'])
-                    category_object.shops.add(shop.id)
-                    category_object.save()
-                ProductInfo.objects.filter(shop_id=shop.id).delete()
-
-                for item in data['goods']:
-                    product, _ = Product.objects.get_or_create(name=item['name'], category_id=item['category'])
-
-                    product_info = ProductInfo.objects.create(product_id=product.id,
-                                                              external_id=item['id'],
-                                                              model=item['model'],
-                                                              price=item['price'],
-                                                              price_rrc=item['price_rrc'],
-                                                              quantity=item['quantity'],
-                                                              shop_id=shop.id)
-                    for name, value in item['parameters'].items():
-                        parameter_object, _ = Parameter.objects.get_or_create(name=name)
-                        ProductParameter.objects.create(product_info_id=product_info.id,
-                                                        parameter_id=parameter_object.id,
-                                                        value=value)
-
-                return JsonResponse({'Status': True})
+                task = do_import.delay(url, request.user.id)
+                return JsonResponse({'Status': True,
+                                     'task_id': task.id})
 
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
@@ -472,3 +452,19 @@ class OrderView(APIView):
                         new_order.send(sender=self.__class__, user_id=request.user.id)
                         return JsonResponse({'Status': True})
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+
+
+class TaskStatus(APIView):
+    def get(self, request, *args, **kwargs):
+        if not {'task_id'}.issubset(request.data):
+            return JsonResponse({
+                'Status': False,
+                'Errors': 'Не указаны все обязательные аргументы'
+            })
+
+        task = AsyncResult(request.data['task_id'], app=celery_app)
+        response = {'status': task.status}
+        if task.status == 'FAILED':
+            response['error'] = str(task.result)
+            response['traceback'] = task.traceback
+        return JsonResponse(response)

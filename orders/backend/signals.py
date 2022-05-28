@@ -1,9 +1,8 @@
-from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
 from django.dispatch import receiver, Signal
 from django_rest_passwordreset.signals import reset_password_token_created
 
 from backend.models import ConfirmEmailToken, User
+from backend.tasks import send_mail
 
 new_user_registered = Signal(providing_args=['user_id'])
 new_order = Signal(providing_args=['user_id'])
@@ -11,44 +10,36 @@ new_order = Signal(providing_args=['user_id'])
 
 @receiver(new_user_registered)
 def new_user_registered_signal(user_id, **kwargs):
-    """
-    Отправляем письмо с подтверждением почты
-    """
+    """Отправляем письмо с подтверждением почты"""
+
     # send an e-mail to the user
     token, _ = ConfirmEmailToken.objects.get_or_create(user_id=user_id)
 
-    msg = EmailMultiAlternatives(
+    task = send_mail.delay(
         # title:
         f'Password reset Token for {token.user.email}',
         # message:
         token.key,
-        # from:
-        settings.EMAIL_HOST_USER,
         # to:
         [token.user.email]
     )
-    msg.send()
+    return task.id
 
 
 @receiver(new_order)
 def new_order_signals(user_id, **kwargs):
-    """
-    Отправляем письмо при изменении статуса заказа
-    """
+    """Отправляем письмо при изменении статуса заказа"""
     # send an e-mail to the user
     user = User.objects.get(id=user_id)
 
-    msg = EmailMultiAlternatives(
+    send_mail.delay(
         # title:
         f'Обновление статуса заказа',
         # message:
         f'Заказ сформирован',
-        # from:
-        settings.EMAIL_HOST_USER,
         # to:
         [user.email]
     )
-    msg.send()
 
 
 @receiver(reset_password_token_created)
@@ -61,17 +52,14 @@ def password_reset_token_created(sender, instance, reset_password_token, **kwarg
         :param reset_password_token: Token Model Object
         :param kwargs:
         :return:
-        """
-    # send an e-mail to the user
+    """
 
-    msg = EmailMultiAlternatives(
+    # send an e-mail to the user
+    send_mail.delay(
         # title:
-        f'Password Reset Token for {reset_password_token.user}',
+        f'Password Reset Token for {reset_password_token.user.email}',
         # message:
         reset_password_token.key,
-        # from:
-        settings.EMAIL_HOST_USER,
         # to:
         [reset_password_token.user.email]
     )
-    msg.send()
