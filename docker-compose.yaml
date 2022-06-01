@@ -1,0 +1,59 @@
+version: "3.9"
+
+
+services:
+  db:
+    image:
+      postgres:alpine
+    ports:
+      - 5432:5432
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis
+    ports:
+      - 6379:6379
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+
+  django:
+    image:
+      orders
+    build:
+      context: orders
+      dockerfile: ./Dockerfile
+    ports:
+      - 8000:8000
+    command: >
+      sh -c "wait-for-it -s db:5432 -- python3 manage.py migrate &&
+             python3 manage.py runserver 0.0.0.0:8000"
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+
+  celery:
+    build:
+      context: orders
+      dockerfile: ./Dockerfile
+    command: celery -A orders worker -c 3 -l INFO
+    depends_on:
+      - db
+      - redis
+      - django
+    env_file:
+      - .env

@@ -168,7 +168,7 @@ REST_FRAMEWORK = {
 CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND')
 CELERY_BROKER = config('CELERY_BROKER')
 CELERY_BROKER_URL = config('CELERY_BROKER_URL')
-CELERY_TIMEZONE = 'UTC'
+# CELERY_TIMEZONE = 'UTC'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
