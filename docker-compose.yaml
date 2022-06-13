@@ -55,6 +55,7 @@ services:
       - django
     env_file:
       - .env
+
   dashboard:
     build:
       context: orders

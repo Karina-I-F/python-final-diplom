@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django_rest_passwordreset',
     'rest_framework',
     'rest_framework.authtoken',
+    'drf_spectacular',
 
     'backend.apps.BackendConfig',
 
@@ -128,7 +129,7 @@ AUTH_USER_MODEL = 'backend.User'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
-EMAIL_HOST = 'smtp.mail.ru'
+EMAIL_HOST = config('EMAIL_HOST')
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 EMAIL_PORT = '465'
@@ -162,12 +163,21 @@ REST_FRAMEWORK = {
         'user': '1000/day',
         'reg': '100/day'
     },
+
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Your Project API',
+    'DESCRIPTION': 'Your project description',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
 
 # Celery
 CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND')
 CELERY_BROKER_URL = config('CELERY_BROKER_URL')
-CELERY_TIMEZONE = 'UTC'
+CELERY_TIMEZONE = config('CELERY_TIMEZONE')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
