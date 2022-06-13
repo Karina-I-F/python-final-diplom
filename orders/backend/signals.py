@@ -17,7 +17,7 @@ def new_user_registered_signal(user_id, **kwargs):
 
     task = send_mail.delay(
         # title:
-        f'Password reset Token for {token.user.email}',
+        f'Confirm Email Token for {token.user.email}',
         # message:
         token.key,
         # to:
@@ -32,7 +32,7 @@ def new_order_signals(user_id, **kwargs):
     # send an e-mail to the user
     user = User.objects.get(id=user_id)
 
-    send_mail.delay(
+    task = send_mail.delay(
         # title:
         f'Обновление статуса заказа',
         # message:
@@ -40,6 +40,7 @@ def new_order_signals(user_id, **kwargs):
         # to:
         [user.email]
     )
+    return task.id
 
 
 @receiver(reset_password_token_created)

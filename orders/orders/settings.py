@@ -128,7 +128,7 @@ AUTH_USER_MODEL = 'backend.User'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
-EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST = 'smtp.mail.ru'
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 EMAIL_PORT = '465'
@@ -166,9 +166,8 @@ REST_FRAMEWORK = {
 
 # Celery
 CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND')
-CELERY_BROKER = config('CELERY_BROKER')
 CELERY_BROKER_URL = config('CELERY_BROKER_URL')
-# CELERY_TIMEZONE = 'UTC'
+CELERY_TIMEZONE = 'UTC'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field

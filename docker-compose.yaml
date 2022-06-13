@@ -6,7 +6,7 @@ services:
     image:
       postgres:alpine
     ports:
-      - 5432:5432
+      - "5432:5432"
     env_file:
       - .env
     healthcheck:
@@ -20,12 +20,11 @@ services:
   redis:
     image: redis
     ports:
-      - 6379:6379
+      - "6379:6379"
     env_file:
       - .env
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
 
   django:
     image:
@@ -34,7 +33,7 @@ services:
       context: orders
       dockerfile: ./Dockerfile
     ports:
-      - 8000:8000
+      - "8000:8000"
     command: >
       sh -c "wait-for-it -s db:5432 -- python3 manage.py migrate &&
              python3 manage.py runserver 0.0.0.0:8000"
@@ -50,10 +49,22 @@ services:
     build:
       context: orders
       dockerfile: ./Dockerfile
-    command: celery -A orders worker -c 3 -l INFO
+    command: celery -A orders worker -l INFO -E --without-mingle --without-gossip
     depends_on:
-      - db
       - redis
       - django
     env_file:
       - .env
+  dashboard:
+    build:
+      context: orders
+      dockerfile: ./Dockerfile
+    command: celery flower -A orders --port=5555 --broker=ampq://rabbitmq:5672
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    depends_on:
+      - django
+      - redis
+      - celery

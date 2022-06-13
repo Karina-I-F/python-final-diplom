@@ -449,8 +449,12 @@ class OrderView(APIView):
                     return JsonResponse({'Status': False, 'Errors': 'Неправильно указаны аргументы'})
                 else:
                     if is_updated:
-                        new_order.send(sender=self.__class__, user_id=request.user.id)
-                        return JsonResponse({'Status': True})
+                        sig_resp = new_order.send(sender=self.__class__, user_id=request.user.id)
+
+                        response = {'Status': True}
+                        if sig_resp:
+                            response['task_id'] = sig_resp[0][1]
+                        return JsonResponse(response)
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
 
